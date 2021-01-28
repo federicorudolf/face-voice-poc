@@ -2,6 +2,7 @@
   <div class="camContainer">
     <video class="camContainer--video" ref="camera" autoplay muted playsinline></video>
     <canvas class="camContainer--canvas" ref="canvas"></canvas>
+    <!-- <img id="chiqui" src="../assets/chiqui_tapia_1.jpg_970625494.jpg" alt=""> -->
   </div>
 </template>
 <script>
@@ -18,6 +19,7 @@ export default {
     return {
       title: 'Camera',
       minConfidenceFace: 0.5,
+      intervals: [],
       faceapiOptions: new faceapi.SsdMobilenetv1Options({
         minConfidenceFace: this.minConfidenceFace,
       }),
@@ -28,19 +30,21 @@ export default {
       (res) => this.setVideoStream(res),
     );
   },
+  unmounted() {
+    this.intervals.forEach((el) => clearInterval(el));
+  },
   methods: {
     async loadModels() {
-      Promise.all([
-        faceapi.loadTinyFaceDetectorModel('/models/weights'),
-        faceapi.loadFaceLandmarkModel('/models/weights'),
-        faceapi.loadFaceRecognitionModel('/models/weights'),
-        faceapi.loadFaceDetectionModel('/models/weights'),
-        faceapi.loadFaceExpressionModel('/models/weights'),
-      ]);
-      console.log(faceapi.nets);
+      await faceapi.loadTinyFaceDetectorModel('/models/weights');
+      await faceapi.loadSsdMobilenetv1Model('/models/weights');
+      await faceapi.loadFaceLandmarkModel('/models/weights');
+      await faceapi.loadFaceRecognitionModel('/models/weights');
+      await faceapi.loadFaceDetectionModel('/models/weights');
+      await faceapi.loadFaceExpressionModel('/models/weights');
     },
     async askPermissions() {
       await this.loadModels();
+      console.log('Loaded Models');
       const userStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -56,42 +60,28 @@ export default {
       video.width = this.$props.width;
       video.height = this.$props.height;
       video.srcObject = stream;
-
-      this.detectFaces(video);
+      video.onloadedmetadata = () => {
+        const interval = setInterval(() => {
+          this.detectFaces(video);
+        }, 200);
+        this.intervals.push(interval);
+      };
     },
     async detectFaces(camera) {
-      let result;
-      faceapi.detectSingleFace(camera, new faceapi.TinyFaceDetectorOptions(
-        { inputSize: 512, scoreThreshold: 0.5 },
-      ))
-        .then(
-          (res) => {
-            result = res;
-            console.log(result);
-            const { canvas } = this.$refs;
-            canvas.width = this.$props.width;
-            canvas.height = this.$props.height;
-            this.drawBoxes(canvas, result);
-          },
-          (err) => console.log('error', err),
-        )
-        .catch(() => {
-          // Catch any exception that's thrown and log this
-          console.warn('faceAPI promise errored out i');
-        });
+      const result = await faceapi.detectAllFaces(camera).withFaceLandmarks();
+      if (!result) {
+        throw new Error('No faces detected');
+      } else {
+        console.log('Face detection result:', result);
+        const { canvas } = this.$refs;
+        canvas.width = this.$props.width;
+        canvas.height = this.$props.height;
+        this.drawBoxes(canvas, result);
+      }
     },
-    drawBoxes(canvas, result) {
-      const detectionsForSize = faceapi
-        .resizeResults(result, { width: this.$props.width, height: this.$props.height });
-
-      faceapi.drawDetection(canvas, detectionsForSize, { withScore: true });
-
+    async drawBoxes(canvas, result) {
+      faceapi.draw.drawDetections(canvas, result);
       console.log('Drawing', canvas);
-
-      const boxesWithText = [
-        new faceapi.BoxWithText(new faceapi.Rect(0, 0, 50, 50, false), 'some text'),
-      ];
-      faceapi.drawDetection(canvas, boxesWithText);
     },
   },
 };
