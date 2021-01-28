@@ -68,7 +68,8 @@ export default {
       };
     },
     async detectFaces(camera) {
-      const result = await faceapi.detectAllFaces(camera).withFaceLandmarks();
+      const result = await faceapi.detectSingleFace(camera, this.faceapiOptions)
+        .withFaceExpressions();
       if (!result) {
         throw new Error('No faces detected');
       } else {
@@ -76,12 +77,33 @@ export default {
         const { canvas } = this.$refs;
         canvas.width = this.$props.width;
         canvas.height = this.$props.height;
-        this.drawBoxes(canvas, result);
+        const text = this.detectEmotion(result);
+        this.drawBoxes(canvas, result, text);
       }
     },
-    async drawBoxes(canvas, result) {
-      faceapi.draw.drawDetections(canvas, result);
-      console.log('Drawing', canvas);
+    async drawBoxes(canvas, result, text) {
+      const {
+        x, y, width, height,
+      } = result.detection.box;
+      const box = new faceapi.Box(new faceapi.Rect(x, y, width, height), false);
+      const labeledBox = new faceapi.LabeledBox(box, text);
+      faceapi.draw.drawDetections(canvas, labeledBox);
+      faceapi.draw.drawFaceExpressions(canvas, result.expressions);
+    },
+    detectEmotion(result) {
+      const emotions = Object.keys(result.expressions);
+      let biggest;
+      let text = '';
+      emotions.forEach((e) => {
+        if (!biggest) {
+          biggest = result.expressions[e];
+          text = e;
+        } else if (result.expressions[e] > biggest) {
+          biggest = result.expressions[e];
+          text = e;
+        }
+      });
+      return text;
     },
   },
 };
