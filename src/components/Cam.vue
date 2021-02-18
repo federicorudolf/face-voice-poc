@@ -3,6 +3,15 @@
     <video class="camContainer--video" ref="camera" autoplay muted playsinline></video>
     <canvas class="camContainer--canvas" ref="canvas"></canvas>
     <!-- <img id="chiqui" src="../assets/chiqui_tapia_1.jpg_970625494.jpg" alt=""> -->
+    <span
+      v-if="gender && age"
+      class="camContainer--text"> {{ gender + `, ${age} years old` }} </span>
+    <div class="camContainer__buttons">
+      <button class="camContainer__buttons--button">Hat</button>
+      <button class="camContainer__buttons--button">Mustache</button>
+      <button class="camContainer__buttons--button">Glasses</button>
+      <button class="camContainer__buttons--button">Sunglasses</button>
+    </div>
   </div>
 </template>
 <script>
@@ -23,6 +32,8 @@ export default {
       faceapiOptions: new faceapi.SsdMobilenetv1Options({
         minConfidenceFace: this.minConfidenceFace,
       }),
+      age: null,
+      gender: '',
     };
   },
   mounted() {
@@ -41,6 +52,7 @@ export default {
       await faceapi.loadFaceRecognitionModel('/models/weights');
       await faceapi.loadFaceDetectionModel('/models/weights');
       await faceapi.loadFaceExpressionModel('/models/weights');
+      await faceapi.loadAgeGenderModel('/models/weights');
     },
     async askPermissions() {
       await this.loadModels();
@@ -69,15 +81,16 @@ export default {
     },
     async detectFaces(camera) {
       const result = await faceapi.detectSingleFace(camera, this.faceapiOptions)
-        .withFaceExpressions();
+        .withFaceExpressions()
+        .withAgeAndGender();
       if (!result) {
         throw new Error('No faces detected');
       } else {
-        console.log('Face detection result:', result);
         const { canvas } = this.$refs;
         canvas.width = this.$props.width;
         canvas.height = this.$props.height;
         const text = this.detectEmotion(result);
+        this.detectAgeGender(result);
         this.drawBoxes(canvas, result, text);
       }
     },
@@ -88,7 +101,10 @@ export default {
       const box = new faceapi.Box(new faceapi.Rect(x, y, width, height), false);
       const labeledBox = new faceapi.LabeledBox(box, text);
       faceapi.draw.drawDetections(canvas, labeledBox);
-      faceapi.draw.drawFaceExpressions(canvas, result.expressions);
+      // faceapi.draw.drawFaceExpressions(canvas, result.expressions);
+      const cx = canvas.getContext('2d'); cx.font = '28px Poppins';
+      cx.fillStyle = 'red';
+      cx.fillText(this.detectEmotion(result), 10, 50);
     },
     detectEmotion(result) {
       const emotions = Object.keys(result.expressions);
@@ -105,6 +121,12 @@ export default {
       });
       return text;
     },
+    detectAgeGender(result) {
+      if (!this.age && !this.gender) {
+        this.age = Math.round(result.age);
+        this.gender = result.gender.toUpperCase();
+      }
+    },
   },
 };
 
@@ -113,15 +135,22 @@ export default {
 <style lang="scss">
 .camContainer {
   position: relative;
-  &--video {
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+
   &--canvas {
     position: absolute;
+    left: calc((100% - 640px) / 2);
     top: 0;
-    left: 0;
+  }
+
+  &--text {
+    margin-top: 3em;
+    text-transform: capitalize;
   }
 }
 </style>
