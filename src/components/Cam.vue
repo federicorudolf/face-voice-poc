@@ -5,13 +5,8 @@
     <!-- <img id="chiqui" src="../assets/chiqui_tapia_1.jpg_970625494.jpg" alt=""> -->
     <span
       v-if="gender && age"
-      class="camContainer--text"> {{ gender + `, ${age} years old` }} </span>
-    <div class="camContainer__buttons">
-      <button class="camContainer__buttons--button">Hat</button>
-      <button class="camContainer__buttons--button">Mustache</button>
-      <button class="camContainer__buttons--button">Glasses</button>
-      <button class="camContainer__buttons--button">Sunglasses</button>
-    </div>
+      class="camContainer--text"> {{ gender + `, ${age} years old` }}
+    </span>
   </div>
 </template>
 <script>
@@ -28,6 +23,7 @@ export default {
     return {
       title: 'Camera',
       minConfidenceFace: 0.5,
+      result: null,
       intervals: [],
       faceapiOptions: new faceapi.SsdMobilenetv1Options({
         minConfidenceFace: this.minConfidenceFace,
@@ -86,6 +82,7 @@ export default {
       if (!result) {
         throw new Error('No faces detected');
       } else {
+        this.result = result;
         const { canvas } = this.$refs;
         canvas.width = this.$props.width;
         canvas.height = this.$props.height;
