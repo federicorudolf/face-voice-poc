@@ -1,5 +1,5 @@
 <template>
-  <div class="camContainer">
+  <div class="camContainer" :style="styleProps">
     <video class="camContainer--video" ref="camera" autoplay muted playsinline></video>
     <canvas class="camContainer--canvas" ref="canvas"></canvas>
     <!-- <img id="chiqui" src="../assets/chiqui_tapia_1.jpg_970625494.jpg" alt=""> -->
@@ -18,6 +18,19 @@ export default {
   props: {
     width: Number,
     height: Number,
+    onExpressionsChange: Function,
+    showDetectionResultsOnCanvas: {
+      type: Boolean,
+      default: true
+    }
+  },
+  computed: {
+    styleProps() {
+      return {
+        '--canvas-width': `${this.width}px`,
+        '--canvas-height': `${this.height}px`,
+      };
+    }
   },
   data() {
     return {
@@ -29,16 +42,16 @@ export default {
         minConfidenceFace: this.minConfidenceFace,
       }),
       age: null,
-      gender: '',
+      gender: ''
     };
   },
   mounted() {
     this.askPermissions().then(
-      (res) => this.setVideoStream(res),
+      res => this.setVideoStream(res)
     );
   },
   unmounted() {
-    this.intervals.forEach((el) => clearInterval(el));
+    this.intervals.forEach(el => clearInterval(el));
   },
   methods: {
     async loadModels() {
@@ -57,9 +70,9 @@ export default {
         audio: false,
         video: {
           facingMode: 'user',
-          width: this.$props.width,
-          height: this.$props.height,
-        },
+          width: this.width,
+          height: this.height,
+        }
       });
       return userStream;
     },
@@ -71,7 +84,7 @@ export default {
       video.onloadedmetadata = () => {
         const interval = setInterval(() => {
           this.detectFaces(video);
-        }, 200);
+        }, 1000);
         this.intervals.push(interval);
       };
     },
@@ -84,16 +97,21 @@ export default {
       } else {
         this.result = result;
         const { canvas } = this.$refs;
-        canvas.width = this.$props.width;
-        canvas.height = this.$props.height;
+        const { 
+          width, height, onExpressionsChange, showDetectionResultsOnCanvas 
+        } = this.$props;
+        canvas.width = width;
+        canvas.height = height;
         const text = this.detectEmotion(result);
         this.detectAgeGender(result);
-        this.drawBoxes(canvas, result, text);
+        
+        if (showDetectionResultsOnCanvas) this.drawBoxes(canvas, result, text);
+        if (onExpressionsChange) onExpressionsChange(result.expressions);
       }
     },
     async drawBoxes(canvas, result, text) {
-      const {
-        x, y, width, height,
+      const { 
+        x, y, width, height 
       } = result.detection.box;
       const box = new faceapi.Box(new faceapi.Rect(x, y, width, height), false);
       const labeledBox = new faceapi.LabeledBox(box, text);
@@ -132,12 +150,14 @@ export default {
 <style lang="scss">
 .camContainer {
   position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+
+  &--video {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
 
   &--canvas {
     position: absolute;

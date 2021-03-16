@@ -19,6 +19,11 @@ const routes = [
     // Lazy Loading
     component: () => import('../views/About.vue'),
   },
+  {
+    path: '/emoji_game',
+    name: 'EmojiGame',
+    component: () => import('../views/EmojiGame.vue'),
+  },
 ];
 
 const router = createRouter({
