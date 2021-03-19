@@ -1,8 +1,8 @@
+/* eslint-disable func-names */
 <template>
   <div class="camContainer" :style="styleProps">
     <video class="camContainer--video" ref="camera" autoplay muted playsinline></video>
-    <canvas class="camContainer--canvas" ref="canvas"></canvas>
-    <!-- <img id="chiqui" src="../assets/chiqui_tapia_1.jpg_970625494.jpg" alt=""> -->
+    <canvas class="camContainer__canvas" ref="canvas"></canvas>
     <span
       v-if="gender && age"
       class="camContainer--text"> {{ gender + `, ${age} years old` }}
@@ -19,10 +19,11 @@ export default {
     width: Number,
     height: Number,
     onExpressionsChange: Function,
+    picId: String,
     showDetectionResultsOnCanvas: {
       type: Boolean,
       default: true
-    }
+    },
   },
   computed: {
     styleProps() {
@@ -31,6 +32,13 @@ export default {
         '--canvas-height': `${this.height}px`,
       };
     }
+  },
+  watch: {
+    // eslint-disable-next-line func-names
+    // eslint-disable-next-line object-shorthand
+    picId: function (newVal) {
+      this.drawPic(newVal);
+    },
   },
   data() {
     return {
@@ -42,7 +50,15 @@ export default {
         minConfidenceFace: this.minConfidenceFace,
       }),
       age: null,
-      gender: ''
+      gender: '', 
+      eyesPosition: {
+        x: 0,
+        y: 0
+      },
+      mouthPosition: {
+        x: 0,
+        y: 0
+      },
     };
   },
   mounted() {
@@ -90,18 +106,27 @@ export default {
     },
     async detectFaces(camera) {
       const result = await faceapi.detectSingleFace(camera, this.faceapiOptions)
+        .withFaceLandmarks()
+        .withFaceDescriptor()
         .withFaceExpressions()
         .withAgeAndGender();
       if (!result) {
+        alert('Show me your face dude');
         throw new Error('No faces detected');
       } else {
         this.result = result;
+        this.setEyesMouthPositions(result);
         const { canvas } = this.$refs;
         const { 
-          width, height, onExpressionsChange, showDetectionResultsOnCanvas 
+          width,
+          height,
+          onExpressionsChange,
+          showDetectionResultsOnCanvas
         } = this.$props;
         canvas.width = width;
         canvas.height = height;
+        // eslint-disable-next-line no-unused-expressions
+        this.picId ? this.drawPic(this.picId, canvas) : null;
         const text = this.detectEmotion(result);
         this.detectAgeGender(result);
         
@@ -116,7 +141,6 @@ export default {
       const box = new faceapi.Box(new faceapi.Rect(x, y, width, height), false);
       const labeledBox = new faceapi.LabeledBox(box, text);
       faceapi.draw.drawDetections(canvas, labeledBox);
-      // faceapi.draw.drawFaceExpressions(canvas, result.expressions);
       const cx = canvas.getContext('2d'); cx.font = '28px Poppins';
       cx.fillStyle = 'red';
       cx.fillText(this.detectEmotion(result), 10, 50);
@@ -134,14 +158,47 @@ export default {
           text = e;
         }
       });
-      return text;
+      return (text.split('')[0].toUpperCase() + text.substring(1));
     },
     detectAgeGender(result) {
       if (!this.age && !this.gender) {
         this.age = Math.round(result.age);
-        this.gender = result.gender.toUpperCase();
+        this.gender = result.gender.split('')[0].toUpperCase() + result.gender.substring(1);
       }
     },
+    drawPic(pic, canvas) {
+      let x; let y; let cx;
+      if (canvas) cx = canvas.getContext('2d');
+      const img = document.createElement('img');
+      const {
+        width, height,
+      } = this.result.detection.box;
+      img.src = this.$props.picId;
+      if (pic.includes('moustache')) {
+        x = this.mouthPosition.x - (width / 2);
+        y = this.mouthPosition.y - (height / 2);
+      } else if (pic.includes('glasses')) {
+        x = this.eyesPosition.x - (width / 2);
+        y = this.eyesPosition.y - (height / 2);
+      } else {
+        x = this.result.detection.box.x;
+        y = this.result.detection.box.y - height;
+      }
+
+      img.addEventListener('load', () => {
+        if (canvas) cx.drawImage(img, x, y, width, height);
+      });
+    },
+    setEyesMouthPositions(result) {
+      this.eyesPosition.x = (this.getAverage(result.landmarks.getLeftEye(), 'x') + this.getAverage(result.landmarks.getRightEye(), 'x')) / 2;
+      this.eyesPosition.y = (this.getAverage(result.landmarks.getLeftEye(), 'y') + this.getAverage(result.landmarks.getRightEye(), 'y')) / 2;
+
+      this.mouthPosition.y = this.getAverage(result.landmarks.getMouth(), 'y');
+      this.mouthPosition.x = this.getAverage(result.landmarks.getMouth(), 'x');
+    },
+    getAverage(array, position) {
+      return array.map(el => el[position]).reduce((acc, curr) => acc + curr) / array.length;
+    }
   },
 };
 
@@ -159,10 +216,16 @@ export default {
     left: 0;
   }
 
-  &--canvas {
+  &__canvas {
     position: absolute;
     left: calc((100% - 640px) / 2);
     top: 0;
+
+    &--image {
+      position: relative;
+      top: 0;
+      left: 0;
+    }
   }
 
   &--text {
