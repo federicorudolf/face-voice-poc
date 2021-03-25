@@ -111,7 +111,6 @@ export default {
         .withFaceExpressions()
         .withAgeAndGender();
       if (!result) {
-        alert('Show me your face dude');
         throw new Error('No faces detected');
       } else {
         this.result = result;

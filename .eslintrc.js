@@ -16,6 +16,7 @@ module.exports = {
     'arrow-parens': 'off',
     'comma-dangle': 'off',
     'no-trailing-spaces': 'off',
-    'max-len': 'off'
+    'max-len': 'off',
+    'vue/no-multiple-template-root': 'off'
   },
 };

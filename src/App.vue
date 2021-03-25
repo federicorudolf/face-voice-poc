@@ -3,6 +3,7 @@
     <router-link to="/">Home</router-link> |
     <router-link to="/pictest">Pic Test</router-link> |
     <router-link to="/emoji_game">Emoji Game</router-link> |
+    <router-link to="/laugh_game">Don't Laugh Game</router-link> |
     <router-link to="/about">About</router-link>
   </div>
   <router-view/>
